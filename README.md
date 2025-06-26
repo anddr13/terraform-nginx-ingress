@@ -62,7 +62,7 @@ curl http://localhost/
 ```
 
 
-
+```
 
 📘 Test Task Description: Deploy Two NGINX Pods and Ingress with Load Balancing
 🎯 Objective
@@ -94,3 +94,4 @@ Add the annotation nginx.ingress.kubernetes.io/load-balance: round_robin to enab
 The Ingress must be externally accessible (via LoadBalancer service or a configured Ingress Controller).
 
 To verify the setup: when accessing the Ingress URL at /, reloading the page should alternate between the red and blue NGINX pages.
+```
