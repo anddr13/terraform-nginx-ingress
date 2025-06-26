@@ -2,7 +2,7 @@ provider "kubernetes" {
   config_path = "~/.kube/config"
 }
 
-# Создание Namespace
+# Create Namespace
 resource "kubernetes_namespace" "nginx" {
   metadata {
     name = "test-nginx"
@@ -47,7 +47,10 @@ resource "kubernetes_deployment" "red" {
     }
     template {
       metadata {
-        labels = { app = "nginx-red" }
+        labels = {
+          app = "nginx-red"
+          service = "nginx-loadbalanced"
+        }
       }
       spec {
         container {
@@ -87,7 +90,10 @@ resource "kubernetes_deployment" "blue" {
     }
     template {
       metadata {
-        labels = { app = "nginx-blue" }
+        labels = {
+          app = "nginx-blue"
+          service = "nginx-loadbalanced"
+        }
       }
       spec {
         container {
@@ -113,114 +119,15 @@ resource "kubernetes_deployment" "blue" {
   }
 }
 
-# RED Service
-resource "kubernetes_service" "red" {
+# Load Balanced Service (selects both red and blue pods)
+resource "kubernetes_service" "loadbalanced" {
   metadata {
-    name      = "nginx-red-svc"
+    name      = "nginx-loadbalanced-svc"
     namespace = kubernetes_namespace.nginx.metadata[0].name
   }
 
   spec {
-    selector = { app = "nginx-red" }
-    port {
-      port        = 80
-      target_port = 80
-    }
-  }
-}
-
-# BLUE Service
-resource "kubernetes_service" "blue" {
-  metadata {
-    name      = "nginx-blue-svc"
-    namespace = kubernetes_namespace.nginx.metadata[0].name
-  }
-
-  spec {
-    selector = { app = "nginx-blue" }
-    port {
-      port        = 80
-      target_port = 80
-    }
-  }
-}
-
-# NGINX Proxy ConfigMap
-resource "kubernetes_config_map" "proxy_conf" {
-  metadata {
-    name      = "nginx-proxy-conf"
-    namespace = kubernetes_namespace.nginx.metadata[0].name
-  }
-
-  data = {
-    "nginx.conf" = <<-EOT
-      worker_processes 1;
-      events { worker_connections 1024; }
-      http {
-        upstream backend {
-          server nginx-red-svc:80;
-          server nginx-blue-svc:80;
-        }
-        server {
-          listen 80;
-          location / {
-            proxy_pass http://backend;
-          }
-        }
-      }
-    EOT
-  }
-}
-
-# NGINX Proxy Deployment
-resource "kubernetes_deployment" "proxy" {
-  metadata {
-    name      = "nginx-proxy"
-    namespace = kubernetes_namespace.nginx.metadata[0].name
-  }
-
-  spec {
-    replicas = 1
-    selector {
-      match_labels = { app = "nginx-proxy" }
-    }
-    template {
-      metadata {
-        labels = { app = "nginx-proxy" }
-      }
-      spec {
-        container {
-          name  = "nginx"
-          image = "nginx"
-          port {
-            container_port = 80
-          }
-          volume_mount {
-            name       = "conf"
-            mount_path = "/etc/nginx/nginx.conf"
-            sub_path   = "nginx.conf"
-          }
-        }
-        volume {
-          name = "conf"
-          config_map {
-            name = kubernetes_config_map.proxy_conf.metadata[0].name
-          }
-        }
-      }
-    }
-  }
-}
-
-# Proxy Service
-resource "kubernetes_service" "proxy" {
-  metadata {
-    name      = "nginx-proxy-svc"
-    namespace = kubernetes_namespace.nginx.metadata[0].name
-  }
-
-  spec {
-    selector = { app = "nginx-proxy" }
+    selector = { service = "nginx-loadbalanced" }
     port {
       port        = 80
       target_port = 80
@@ -248,7 +155,7 @@ resource "kubernetes_ingress_v1" "nginx" {
           path_type = "Prefix"
           backend {
             service {
-              name = kubernetes_service.proxy.metadata[0].name
+              name = kubernetes_service.loadbalanced.metadata[0].name
               port {
                 number = 80
               }
