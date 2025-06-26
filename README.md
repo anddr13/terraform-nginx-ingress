@@ -4,7 +4,7 @@ Requirements
 
     kubectl installed and configured
 
-    terraform installed (v1.3+ recommended)
+    terraform installed 
 
     NGINX Ingress Controller installed
 
